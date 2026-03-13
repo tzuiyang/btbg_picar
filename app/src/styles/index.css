@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Base styles */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #16213e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #0f3460;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #e94560;
+}
+
+/* Control button styles */
+.control-btn {
+  @apply w-16 h-16 rounded-lg bg-btbg-accent text-white font-bold text-xl
+         flex items-center justify-center transition-all duration-100
+         hover:bg-btbg-highlight active:scale-95 active:bg-btbg-highlight
+         disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-btbg-accent;
+}
+
+.control-btn.active {
+  @apply bg-btbg-highlight scale-95;
+}
+
+/* Status indicators */
+.status-dot {
+  @apply w-3 h-3 rounded-full;
+}
+
+.status-dot.connected {
+  @apply bg-green-500;
+  animation: pulse 2s infinite;
+}
+
+.status-dot.connecting {
+  @apply bg-yellow-500;
+  animation: pulse 1s infinite;
+}
+
+.status-dot.disconnected {
+  @apply bg-red-500;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Mode toggle */
+.mode-toggle {
+  @apply relative w-full h-10 bg-btbg-darker rounded-lg flex items-center cursor-pointer;
+}
+
+.mode-toggle-slider {
+  @apply absolute h-8 rounded-md bg-btbg-highlight transition-all duration-300;
+  width: calc(50% - 4px);
+  left: 2px;
+}
+
+.mode-toggle-slider.patrol {
+  left: calc(50% + 2px);
+}
+
+.mode-toggle-label {
+  @apply flex-1 text-center z-10 font-semibold text-sm;
+}
