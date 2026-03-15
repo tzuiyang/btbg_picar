@@ -1,25 +1,23 @@
 #!/usr/bin/env node
 /**
- * Stop ROS2 nodes locally on the Pi.
+ * Stop BTBG server on the Pi.
  *
  * Usage: npm run btbg:stop
- * Run this ON the Raspberry Pi.
  */
 
 const { execSync } = require('child_process');
 
-// Check if running on Pi (Linux)
 const isLinux = process.platform === 'linux';
 if (!isLinux) {
-    console.log('\n⚠️  This script should be run ON the Raspberry Pi, not Windows.\n');
+    console.log('\nThis script should be run ON the Raspberry Pi, not Windows.\n');
     process.exit(1);
 }
 
 async function stopRobot() {
-    console.log('\n🛑 Stopping BTBG...\n');
+    console.log('\nStopping BTBG...\n');
 
     // Stop motors first (safety)
-    console.log('🔧 Stopping motors...');
+    console.log('Stopping motors...');
     try {
         execSync(`python3 -c "
 try:
@@ -30,42 +28,33 @@ try:
 except Exception as e:
     print(f'   Motor stop skipped: {e}')
 "`, { stdio: 'inherit' });
-    } catch (e) {
-        // Ignore if picarx not available
-    }
+    } catch (e) { }
 
-    // Kill ROS2 processes
-    console.log('🔧 Stopping ROS2 nodes...');
-
+    // Kill server process
+    console.log('Stopping server...');
     const killCmds = [
-        'pkill -f "ros2 launch btbg_nodes"',
-        'pkill -f "btbg_nodes"',
-        'pkill -f "rosbridge_websocket"',
+        'pkill -f "python3.*server.main"',
+        'pkill -f "python3 -m robot.server"',
     ];
 
     for (const cmd of killCmds) {
         try {
             execSync(cmd);
-        } catch (e) {
-            // Ignore if process not found
-        }
+        } catch (e) { }
     }
 
-    // Verify stopped
     await new Promise(r => setTimeout(r, 1000));
 
     try {
-        const check = execSync('pgrep -f "btbg_nodes"', { encoding: 'utf8' });
+        const check = execSync('pgrep -f "server.main"', { encoding: 'utf8' });
         if (check.trim()) {
-            console.log('\n⚠️  Some processes may still be running. PIDs:', check.trim());
-            console.log('   Try: pkill -9 -f btbg_nodes\n');
+            console.log('\nSome processes may still be running. PIDs:', check.trim());
+            console.log('   Try: pkill -9 -f "server.main"\n');
             return;
         }
-    } catch (e) {
-        // No processes found, good
-    }
+    } catch (e) { }
 
-    console.log('\n✓ All BTBG processes stopped.\n');
+    console.log('\nAll BTBG processes stopped.\n');
 }
 
 stopRobot();

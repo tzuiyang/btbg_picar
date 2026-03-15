@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { rosClient } from '../ros/rosClient';
-import { TOPICS } from '../ros/topics';
+import { btbgClient } from '../ros/rosClient';
 
 function DriveControls({ speed, disabled, onEmergencyStop }) {
   const [activeKeys, setActiveKeys] = useState(new Set());
@@ -43,10 +42,7 @@ function DriveControls({ speed, disabled, onEmergencyStop }) {
 
     const { linearX, angularZ } = calculateVelocity();
 
-    rosClient.publish(TOPICS.CMD_VEL, {
-      linear: { x: linearX, y: 0, z: 0 },
-      angular: { x: 0, y: 0, z: angularZ },
-    });
+    btbgClient.send('drive', { speed: linearX, steering: angularZ });
   }, [calculateVelocity, disabled]);
 
   // Handle key down
@@ -103,10 +99,7 @@ function DriveControls({ speed, disabled, onEmergencyStop }) {
       if (publishInterval.current) {
         clearInterval(publishInterval.current);
         // Send stop command when all keys released
-        rosClient.publish(TOPICS.CMD_VEL, {
-          linear: { x: 0, y: 0, z: 0 },
-          angular: { x: 0, y: 0, z: 0 },
-        });
+        btbgClient.send('drive', { speed: 0, steering: 0 });
       }
     }
 

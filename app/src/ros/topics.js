@@ -1,58 +1,24 @@
 /**
- * ROS Topic Definitions
+ * BTBG Message Protocol Reference
  *
- * Central definition of all ROS2 topics used by the UI.
- * Message types match ROS2 message definitions.
+ * All messages are JSON over WebSocket on port 9090.
+ *
+ * CLIENT -> SERVER:
+ *   { type: "drive",  speed: -1..1, steering: -1..1 }
+ *   { type: "mode",   mode: "manual" | "patrol" }
+ *   { type: "servo",  pan: -90..90, tilt: -35..35 }
+ *   { type: "stop" }
+ *
+ * SERVER -> CLIENT:
+ *   {
+ *     type: "telemetry",
+ *     sensors:  { ultrasonic: cm, battery: volts, batteryWarning: bool, grayscale: [l,c,r] },
+ *     status:   { mode: str, speed: num, steering: num, isMoving: bool },
+ *     patrol:   { state: str, isActive: bool, distance: cm, turnAngle: deg },
+ *     hardware: { speed, steering, pan, tilt, isStopped, hardwareAvailable }
+ *   }
  */
 
-export const TOPICS = {
-  // Commands (UI -> Robot)
-  CMD_VEL: {
-    name: '/btbg/cmd_vel',
-    messageType: 'geometry_msgs/Twist',
-  },
-  MODE: {
-    name: '/btbg/mode',
-    messageType: 'std_msgs/String',
-  },
-  SERVO_CMD: {
-    name: '/btbg/servo_cmd',
-    messageType: 'std_msgs/Float32MultiArray',
-  },
-  HW_STOP: {
-    name: '/btbg/hw/stop',
-    messageType: 'std_msgs/Empty',
-  },
-
-  // Telemetry (Robot -> UI)
-  SENSOR_ULTRASONIC: {
-    name: '/btbg/sensor/ultrasonic',
-    messageType: 'sensor_msgs/Range',
-  },
-  SENSOR_GRAYSCALE: {
-    name: '/btbg/sensor/grayscale',
-    messageType: 'std_msgs/Float32MultiArray',
-  },
-  SENSOR_BATTERY: {
-    name: '/btbg/sensor/battery',
-    messageType: 'std_msgs/Float32',
-  },
-  SENSOR_BATTERY_WARNING: {
-    name: '/btbg/sensor/battery_warning',
-    messageType: 'std_msgs/Bool',
-  },
-  STATUS: {
-    name: '/btbg/status',
-    messageType: 'std_msgs/String',
-  },
-  PATROL_STATUS: {
-    name: '/btbg/patrol_status',
-    messageType: 'std_msgs/String',
-  },
-  HW_STATUS: {
-    name: '/btbg/hw/status',
-    messageType: 'std_msgs/String',
-  },
-};
-
-export default TOPICS;
+// This file is kept as protocol documentation.
+// The old TOPICS export is no longer used.
+export default {};

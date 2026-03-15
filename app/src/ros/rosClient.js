@@ -1,75 +1,81 @@
 /**
- * ROS Client - Singleton wrapper around roslibjs
+ * WebSocket Client - Plain WebSocket replacement for roslibjs.
  *
- * Provides:
- * - Automatic connection management
- * - Topic subscription/publishing helpers
- * - Event emitter for connection state
+ * Sends/receives JSON messages directly to the BTBG Python server.
+ * Drop-in API replacement: connect, disconnect, publish, subscribe, on/off.
  */
 
-import ROSLIB from 'roslib';
-
-class ROSClient {
+class BTBGClient {
   constructor() {
-    this.ros = null;
-    this.topics = {};
-    this.subscribers = {};
+    this.ws = null;
     this.eventHandlers = {
       connection: [],
       close: [],
       error: [],
     };
 
+    // Message listeners keyed by message type
+    this._listeners = {};
+
     // Connection settings
     this.url = this._getWebSocketUrl();
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 10;
     this.reconnectDelay = 1000;
+    this._reconnectTimer = null;
   }
 
-  /**
-   * Get WebSocket URL from environment or default
-   */
   _getWebSocketUrl() {
-    // Check for environment variable (can be set in .env)
-    if (typeof process !== 'undefined' && process.env.ROSBRIDGE_URL) {
-      return process.env.ROSBRIDGE_URL;
+    if (typeof process !== 'undefined' && process.env.BTBG_WS_URL) {
+      return process.env.BTBG_WS_URL;
     }
-
-    // Default to btbg.local
-    const host = localStorage.getItem('rosbridge_host') || 'btbg.local';
-    const port = localStorage.getItem('rosbridge_port') || '9090';
+    const host = localStorage.getItem('btbg_host') || 'btbg.local';
+    const port = localStorage.getItem('btbg_port') || '9090';
     return `ws://${host}:${port}`;
   }
 
-  /**
-   * Connect to rosbridge
-   */
   connect() {
     return new Promise((resolve, reject) => {
       console.log(`Connecting to ${this.url}...`);
 
-      this.ros = new ROSLIB.Ros({
-        url: this.url,
-      });
+      this.ws = new WebSocket(this.url);
 
-      this.ros.on('connection', () => {
-        console.log('Connected to rosbridge');
+      const timeout = setTimeout(() => {
+        if (this.ws.readyState !== WebSocket.OPEN) {
+          this.ws.close();
+          reject(new Error('Connection timeout'));
+        }
+      }, 5000);
+
+      this.ws.onopen = () => {
+        clearTimeout(timeout);
+        console.log('Connected to BTBG server');
         this.reconnectAttempts = 0;
         this._emit('connection');
         resolve();
-      });
+      };
 
-      this.ros.on('error', (error) => {
-        console.error('rosbridge error:', error);
+      this.ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          const type = msg.type;
+          if (type && this._listeners[type]) {
+            this._listeners[type].forEach((cb) => cb(msg));
+          }
+        } catch (e) {
+          console.error('Failed to parse message:', e);
+        }
+      };
+
+      this.ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
         this._emit('error', error);
-      });
+      };
 
-      this.ros.on('close', () => {
-        console.log('rosbridge connection closed');
+      this.ws.onclose = () => {
+        console.log('WebSocket closed');
         this._emit('close');
 
-        // Auto-reconnect with exponential backoff
         if (this.reconnectAttempts < this.maxReconnectAttempts) {
           const delay = Math.min(
             this.reconnectDelay * Math.pow(2, this.reconnectAttempts),
@@ -77,90 +83,54 @@ class ROSClient {
           );
           this.reconnectAttempts++;
           console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
-          setTimeout(() => this.connect(), delay);
+          this._reconnectTimer = setTimeout(() => this.connect().catch(() => {}), delay);
         }
-      });
-
-      // Timeout after 5 seconds
-      setTimeout(() => {
-        if (!this.ros.isConnected) {
-          reject(new Error('Connection timeout'));
-        }
-      }, 5000);
+      };
     });
   }
 
-  /**
-   * Disconnect from rosbridge
-   */
   disconnect() {
-    if (this.ros) {
-      // Unsubscribe from all topics
-      Object.values(this.subscribers).forEach(sub => sub.unsubscribe());
-      this.subscribers = {};
-
-      this.ros.close();
-      this.ros = null;
+    if (this._reconnectTimer) {
+      clearTimeout(this._reconnectTimer);
+      this._reconnectTimer = null;
+    }
+    this.maxReconnectAttempts = 0; // prevent auto-reconnect
+    if (this.ws) {
+      this.ws.close();
+      this.ws = null;
     }
   }
 
-  /**
-   * Check if connected
-   */
   isConnected() {
-    return this.ros && this.ros.isConnected;
+    return this.ws && this.ws.readyState === WebSocket.OPEN;
   }
 
   /**
-   * Get or create a topic
+   * Send a JSON message to the server.
+   * @param {string} type - Message type (e.g. "drive", "mode", "servo", "stop")
+   * @param {object} data - Payload (merged with {type})
    */
-  getTopic(name, messageType) {
-    const key = `${name}:${messageType}`;
-    if (!this.topics[key]) {
-      this.topics[key] = new ROSLIB.Topic({
-        ros: this.ros,
-        name: name,
-        messageType: messageType,
-      });
-    }
-    return this.topics[key];
-  }
-
-  /**
-   * Subscribe to a topic
-   */
-  subscribe(topicConfig, callback) {
-    const { name, messageType } = topicConfig;
-    const topic = this.getTopic(name, messageType);
-
-    const subscriber = topic.subscribe(callback);
-    this.subscribers[name] = topic;
-
-    console.log(`Subscribed to ${name}`);
-    return () => {
-      topic.unsubscribe();
-      delete this.subscribers[name];
-    };
-  }
-
-  /**
-   * Publish to a topic
-   */
-  publish(topicConfig, data) {
+  send(type, data = {}) {
     if (!this.isConnected()) {
-      console.warn('Cannot publish: not connected');
       return;
     }
-
-    const { name, messageType } = topicConfig;
-    const topic = this.getTopic(name, messageType);
-    const message = new ROSLIB.Message(data);
-
-    topic.publish(message);
+    this.ws.send(JSON.stringify({ type, ...data }));
   }
 
   /**
-   * Register event handler
+   * Listen for messages of a given type from the server.
+   * @param {string} type - Message type to listen for (e.g. "telemetry")
+   * @param {function} callback - Handler function
+   */
+  onMessage(type, callback) {
+    if (!this._listeners[type]) {
+      this._listeners[type] = [];
+    }
+    this._listeners[type].push(callback);
+  }
+
+  /**
+   * Register event handler (connection, close, error).
    */
   on(event, handler) {
     if (this.eventHandlers[event]) {
@@ -168,34 +138,27 @@ class ROSClient {
     }
   }
 
-  /**
-   * Remove event handler
-   */
   off(event, handler) {
     if (this.eventHandlers[event]) {
-      this.eventHandlers[event] = this.eventHandlers[event].filter(h => h !== handler);
+      this.eventHandlers[event] = this.eventHandlers[event].filter((h) => h !== handler);
     }
   }
 
-  /**
-   * Emit event
-   */
   _emit(event, data) {
     if (this.eventHandlers[event]) {
-      this.eventHandlers[event].forEach(handler => handler(data));
+      this.eventHandlers[event].forEach((handler) => handler(data));
     }
   }
 
-  /**
-   * Set connection URL
-   */
   setUrl(host, port = 9090) {
     this.url = `ws://${host}:${port}`;
-    localStorage.setItem('rosbridge_host', host);
-    localStorage.setItem('rosbridge_port', port.toString());
+    localStorage.setItem('btbg_host', host);
+    localStorage.setItem('btbg_port', port.toString());
   }
 }
 
-// Export singleton instance
-export const rosClient = new ROSClient();
-export default rosClient;
+// Export singleton
+export const btbgClient = new BTBGClient();
+// Keep named export compatible with old imports
+export const rosClient = btbgClient;
+export default btbgClient;

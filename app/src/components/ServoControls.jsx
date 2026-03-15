@@ -1,6 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { rosClient } from '../ros/rosClient';
-import { TOPICS } from '../ros/topics';
+import { btbgClient } from '../ros/rosClient';
 
 // Simple throttle function
 function throttle(func, limit) {
@@ -21,9 +20,7 @@ function ServoControls({ disabled }) {
   // Throttle servo commands to 10Hz max
   const publishServo = useCallback(
     throttle((panAngle, tiltAngle) => {
-      rosClient.publish(TOPICS.SERVO_CMD, {
-        data: [panAngle, tiltAngle],
-      });
+      btbgClient.send('servo', { pan: panAngle, tilt: tiltAngle });
     }, 100),
     []
   );
