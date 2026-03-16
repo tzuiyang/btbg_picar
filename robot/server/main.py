@@ -102,7 +102,57 @@ def load_config(path: str | None) -> dict:
                     elif "patrol" in section_key:
                         config["patrol"].update(params)
             log.info("Loaded config from %s", path)
+
+    # Load calibration
+    config["calibration"] = load_calibration()
     return config
+
+
+def _find_calibration_path() -> Path:
+    """Locate calibration.yaml relative to this file or the repo root."""
+    # Try relative to robot/server/ -> robot/config/
+    here = Path(__file__).resolve().parent
+    candidates = [
+        here.parent / "config" / "calibration.yaml",     # robot/config/
+        here.parents[1] / "robot" / "config" / "calibration.yaml",  # repo root
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    # Default to first candidate (will be created on save)
+    return candidates[0]
+
+
+def load_calibration() -> dict:
+    """Load calibration offsets from calibration.yaml."""
+    defaults = {"steering": {"offset": 0}, "camera_pan": {"offset": 0}, "camera_tilt": {"offset": 0}}
+    if not HAS_YAML:
+        return defaults
+    p = _find_calibration_path()
+    if p.exists():
+        try:
+            with open(p) as f:
+                raw = yaml.safe_load(f)
+            if raw:
+                for key in defaults:
+                    if key in raw:
+                        defaults[key].update(raw[key])
+            log.info("Loaded calibration from %s", p)
+        except Exception as e:
+            log.error("Failed to load calibration: %s", e)
+    return defaults
+
+
+def save_calibration(calibration: dict):
+    """Write calibration offsets to calibration.yaml."""
+    if not HAS_YAML:
+        log.warning("Cannot save calibration: PyYAML not installed")
+        return
+    p = _find_calibration_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "w") as f:
+        yaml.dump(calibration, f, default_flow_style=False, sort_keys=False)
+    log.info("Saved calibration to %s", p)
 
 
 # ---------------------------------------------------------------------------
@@ -112,7 +162,7 @@ def load_config(path: str | None) -> dict:
 class RobotController:
     def __init__(self, config: dict):
         self.config = config
-        self.hw = Hardware(config["hardware"])
+        self.hw = Hardware(config["hardware"], config.get("calibration"))
         self.patrol = Patrol(config["patrol"])
 
         ctrl = config["control"]
@@ -183,6 +233,28 @@ class RobotController:
         if self.mode == "patrol":
             self.handle_mode({"mode": "manual"})
 
+    # -- Calibration handlers --
+
+    def handle_calibrate_steer(self, data: dict):
+        """Set steering servo to raw angle for live calibration preview."""
+        angle = data.get("angle", 0.0)
+        self.hw.set_raw_steering(angle)
+
+    def handle_save_calibration(self, data: dict):
+        """Save steering offset and persist to disk."""
+        offset = data.get("steering_offset", 0)
+        self.hw.set_steering_offset(offset)
+        # Update in-memory config and save to disk
+        cal = self.config.get("calibration", {})
+        cal.setdefault("steering", {})["offset"] = offset
+        self.config["calibration"] = cal
+        save_calibration(cal)
+
+    def handle_get_calibration(self, _data: dict):
+        """Return current calibration values (dispatched via broadcast)."""
+        # This is handled specially in dispatch to send to requesting client
+        pass
+
     # -- Message dispatch --
 
     MSG_HANDLERS = {
@@ -190,6 +262,9 @@ class RobotController:
         "mode": "handle_mode",
         "servo": "handle_servo",
         "stop": "handle_stop",
+        "calibrate_steer": "handle_calibrate_steer",
+        "save_calibration": "handle_save_calibration",
+        "get_calibration": "handle_get_calibration",
     }
 
     def dispatch(self, msg: dict):
@@ -338,7 +413,15 @@ async def ws_handler(ws, controller: RobotController):
         async for raw in ws:
             try:
                 msg = json.loads(raw)
-                controller.dispatch(msg)
+                # get_calibration needs to reply to the requesting client
+                if msg.get("type") == "get_calibration":
+                    cal = controller.config.get("calibration", {})
+                    await ws.send(json.dumps({
+                        "type": "calibration",
+                        "steering_offset": cal.get("steering", {}).get("offset", 0),
+                    }))
+                else:
+                    controller.dispatch(msg)
             except json.JSONDecodeError:
                 log.warning("Invalid JSON from %s", remote)
     except websockets.ConnectionClosed:

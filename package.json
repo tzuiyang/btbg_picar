@@ -4,7 +4,6 @@
   "description": "Big Thing Big Gun - Raspberry Pi Robot Car",
   "private": true,
   "scripts": {
-    "btbg:build": "node scripts/build_robot.js",
     "btbg:start": "node scripts/start_robot.js",
     "btbg:stop": "node scripts/stop_robot.js",
     "btbg:logs": "node scripts/tail_logs.js",
@@ -12,7 +11,9 @@
     "app": "npm run dev --prefix app",
     "app:build": "npm run build --prefix app",
     "app:electron": "npm run electron:dev --prefix app",
-    "setup": "node scripts/setup_dev.js"
+    "setup": "node scripts/setup_dev.js",
+    "test": "npm run test:app",
+    "test:app": "npm test --prefix app"
   },
   "devDependencies": {
     "dotenv": "^16.0.0"

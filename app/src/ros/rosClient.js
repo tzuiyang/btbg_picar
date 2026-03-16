@@ -26,11 +26,11 @@ class BTBGClient {
   }
 
   _getWebSocketUrl() {
-    if (typeof process !== 'undefined' && process.env.BTBG_WS_URL) {
-      return process.env.BTBG_WS_URL;
-    }
-    const host = localStorage.getItem('btbg_host') || 'btbg.local';
-    const port = localStorage.getItem('btbg_port') || '9090';
+    const envHost = typeof import.meta !== 'undefined' && import.meta.env?.VITE_PI_HOST;
+    const envPort = typeof import.meta !== 'undefined' && import.meta.env?.VITE_BTBG_PORT;
+    const host = envHost || localStorage.getItem('btbg_host') || 'btbg.local';
+    const port = envPort || localStorage.getItem('btbg_port') || '9090';
+    console.log(`WebSocket target: ${host}:${port} (source: ${envHost ? '.env' : localStorage.getItem('btbg_host') ? 'localStorage' : 'fallback'})`);
     return `ws://${host}:${port}`;
   }
 

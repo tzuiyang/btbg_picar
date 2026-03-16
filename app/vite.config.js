@@ -4,6 +4,7 @@ import electron from 'vite-plugin-electron';
 import path from 'path';
 
 export default defineConfig({
+  envDir: path.resolve(__dirname, '..'),
   plugins: [
     react(),
     electron([
@@ -38,5 +39,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './src/test/setup.js',
   },
 });

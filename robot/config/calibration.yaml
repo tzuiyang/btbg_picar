@@ -1,17 +1,2 @@
-# Servo Calibration Offsets
-# Adjust these values after running calibration procedure
-# Positive values shift servo clockwise, negative counter-clockwise
-
 steering:
-  offset: 0        # Steering servo center offset (-20 to 20)
-
-camera_pan:
-  offset: 0        # Camera pan servo center offset (-20 to 20)
-
-camera_tilt:
-  offset: 0        # Camera tilt servo center offset (-20 to 20)
-
-# Motor calibration
-motors:
-  left_offset: 0   # Left motor speed offset (-10 to 10)
-  right_offset: 0  # Right motor speed offset (-10 to 10)
+  offset: 5

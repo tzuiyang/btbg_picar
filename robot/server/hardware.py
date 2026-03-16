@@ -20,11 +20,15 @@ except ImportError:
 class Hardware:
     """Single owner of the PiCar-X I2C bus."""
 
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, calibration: dict | None = None):
         self.min_motor_speed = config.get("min_motor_speed", 15)
         self.max_motor_speed = config.get("max_motor_speed", 100)
         self.max_steering_angle = config.get("max_steering_angle", 40.0)
         self.watchdog_timeout_s = config.get("watchdog_timeout_ms", 1500) / 1000.0
+
+        # Calibration offsets
+        cal = calibration or {}
+        self.steering_offset = cal.get("steering", {}).get("offset", 0)
 
         self.px = None
         if HARDWARE_AVAILABLE:
@@ -68,7 +72,7 @@ class Hardware:
 
         if self.px:
             try:
-                self.px.set_dir_servo_angle(clamped_steering)
+                self.px.set_dir_servo_angle(clamped_steering + self.steering_offset)
                 if clamped_speed > 0:
                     self.px.forward(clamped_speed)
                     self.is_stopped = False
@@ -99,6 +103,22 @@ class Hardware:
                 log.error("Servo command failed: %s", e)
         else:
             log.debug("SIM: servo pan=%s, tilt=%s", pan, tilt)
+
+    def set_raw_steering(self, angle: float):
+        """Set steering servo to an exact angle (no offset). Used for calibration."""
+        angle = max(-60, min(60, angle))
+        if self.px:
+            try:
+                self.px.set_dir_servo_angle(angle)
+            except Exception as e:
+                log.error("Raw steering command failed: %s", e)
+        else:
+            log.debug("SIM: raw steering angle=%s", angle)
+
+    def set_steering_offset(self, offset: float):
+        """Update the steering center offset."""
+        self.steering_offset = offset
+        log.info("Steering offset set to %s", offset)
 
     def stop(self):
         """Emergency stop - stop all motors immediately."""

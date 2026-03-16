@@ -16,7 +16,7 @@ if (!isLinux) {
     process.exit(1);
 }
 
-const LOG_FILE = path.join(process.env.HOME, 'btbg_logs', 'ros.log');
+const LOG_FILE = path.join(process.env.HOME, 'btbg_logs', 'btbg.log');
 
 console.log(`\n📜 Tailing ${LOG_FILE}...`);
 console.log('   Press Ctrl+C to stop.\n');

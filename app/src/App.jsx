@@ -7,6 +7,7 @@ import SpeedSlider from './components/SpeedSlider';
 import SensorDisplay from './components/SensorDisplay';
 import ServoControls from './components/ServoControls';
 import StatusBar from './components/StatusBar';
+import CalibrationPanel from './components/CalibrationPanel';
 
 function App() {
   // Connection state
@@ -25,6 +26,7 @@ function App() {
     state: 'idle',
     distance: 0,
   });
+  const [showCalibration, setShowCalibration] = useState(false);
   const [robotStatus, setRobotStatus] = useState({
     speed: 0,
     steering: 0,
@@ -97,7 +99,18 @@ function App() {
     <div className="h-screen flex flex-col bg-btbg-dark">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-2 bg-btbg-darker border-b border-btbg-accent">
-        <h1 className="text-xl font-bold">BTBG Control</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-bold">BTBG Control</h1>
+          <button
+            onClick={() => setShowCalibration(true)}
+            disabled={!isConnected}
+            className="text-xs px-2 py-1 bg-btbg-accent rounded hover:bg-btbg-highlight
+                       disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Calibrate steering"
+          >
+            Calibrate
+          </button>
+        </div>
         <ConnectionStatus
           isConnected={isConnected}
           isConnecting={isConnecting}
@@ -162,6 +175,13 @@ function App() {
           />
         </div>
       </main>
+
+      {showCalibration && (
+        <CalibrationPanel
+          disabled={!isConnected}
+          onClose={() => setShowCalibration(false)}
+        />
+      )}
     </div>
   );
 }
