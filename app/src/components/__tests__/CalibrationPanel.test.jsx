@@ -95,6 +95,14 @@ describe('CalibrationPanel', () => {
     expect(screen.getByText('Reset to 0')).toBeDisabled();
   });
 
+  it('on unmount sends drive with speed 0 steering 0 (not calibrate_steer)', () => {
+    const { unmount } = render(<CalibrationPanel disabled={false} onClose={() => {}} />);
+    vi.clearAllMocks();
+    unmount();
+    expect(btbgClient.send).toHaveBeenCalledWith('drive', { speed: 0, steering: 0 });
+    expect(btbgClient.send).not.toHaveBeenCalledWith('calibrate_steer', expect.anything());
+  });
+
   it('calls onClose when X button clicked', () => {
     const onClose = vi.fn();
     render(<CalibrationPanel disabled={false} onClose={onClose} />);

@@ -16,7 +16,8 @@ function CalibrationPanel({ disabled, onClose }) {
     btbgClient.send('get_calibration');
 
     return () => {
-      btbgClient.send('calibrate_steer', { angle: 0 });
+      // Send normal drive command so offset is applied (calibrated center)
+      btbgClient.send('drive', { speed: 0, steering: 0 });
     };
   }, []);
 
