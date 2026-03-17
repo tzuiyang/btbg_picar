@@ -26,8 +26,8 @@ function DriveControls({ speed, disabled, onEmergencyStop }) {
 
     if (activeKeys.has('forward')) linearX += 1;
     if (activeKeys.has('backward')) linearX -= 1;
-    if (activeKeys.has('left')) angularZ += 1;
-    if (activeKeys.has('right')) angularZ -= 1;
+    if (activeKeys.has('left')) angularZ -= 1;
+    if (activeKeys.has('right')) angularZ += 1;
 
     // Scale by speed percentage
     linearX *= speed / 100;
