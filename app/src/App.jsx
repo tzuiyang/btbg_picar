@@ -8,6 +8,7 @@ import SensorDisplay from './components/SensorDisplay';
 import ServoControls from './components/ServoControls';
 import StatusBar from './components/StatusBar';
 import CalibrationPanel from './components/CalibrationPanel';
+import CameraFeed from './components/CameraFeed';
 
 function App() {
   // Connection state
@@ -27,6 +28,11 @@ function App() {
     distance: 0,
   });
   const [showCalibration, setShowCalibration] = useState(false);
+  const [cameraInfo, setCameraInfo] = useState({
+    available: false,
+    streaming: false,
+    port: 8080,
+  });
   const [robotStatus, setRobotStatus] = useState({
     speed: 0,
     steering: 0,
@@ -63,6 +69,9 @@ function App() {
       }
       if (msg.patrol) {
         setPatrolStatus(msg.patrol);
+      }
+      if (msg.camera) {
+        setCameraInfo(msg.camera);
       }
     });
 
@@ -153,8 +162,14 @@ function App() {
           <ServoControls disabled={!isConnected} />
         </div>
 
-        {/* Right Panel - Telemetry */}
-        <div className="w-1/2 p-4 flex flex-col gap-4">
+        {/* Right Panel - Camera + Telemetry */}
+        <div className="w-1/2 p-4 flex flex-col gap-4 overflow-y-auto">
+          <CameraFeed
+            host={import.meta.env?.VITE_PI_HOST || 'btbg.local'}
+            port={cameraInfo.port}
+            available={cameraInfo.available}
+          />
+
           <div className="text-sm font-semibold text-gray-400 uppercase">
             Telemetry
           </div>

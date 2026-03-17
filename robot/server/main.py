@@ -39,6 +39,7 @@ except ImportError:
 
 from .hardware import Hardware
 from .patrol import Patrol
+from .camera import CameraStream, start_stream_server
 
 log = logging.getLogger("btbg")
 
@@ -78,6 +79,14 @@ DEFAULT_CONFIG = {
     "server": {
         "port": 9090,
         "telemetry_rate_hz": 10.0,
+    },
+    "camera": {
+        "enabled": True,
+        "port": 8080,
+        "width": 320,
+        "height": 240,
+        "quality": 50,
+        "fps": 10,
     },
 }
 
@@ -160,10 +169,11 @@ def save_calibration(calibration: dict):
 # ---------------------------------------------------------------------------
 
 class RobotController:
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, camera: CameraStream = None):
         self.config = config
         self.hw = Hardware(config["hardware"], config.get("calibration"))
         self.patrol = Patrol(config["patrol"])
+        self.camera = camera
 
         ctrl = config["control"]
         self.max_speed = ctrl.get("max_speed", 100)
@@ -384,6 +394,11 @@ class RobotController:
                 },
                 "patrol": self.patrol.get_status(),
                 "hardware": self.hw.get_status(),
+                "camera": {
+                    "available": self.camera.is_available() if self.camera else False,
+                    "streaming": self.camera.is_streaming() if self.camera else False,
+                    "port": self.config["camera"].get("port", 8080),
+                },
             }
             await self.broadcast(msg)
             await asyncio.sleep(interval)
@@ -445,7 +460,16 @@ async def main(args):
     config = load_config(args.config)
     config["server"]["port"] = args.port or config["server"].get("port", 9090)
 
-    controller = RobotController(config)
+    # Start camera
+    camera = None
+    cam_config = config.get("camera", {})
+    if cam_config.get("enabled", True):
+        camera = CameraStream(cam_config)
+        camera.start()
+        cam_port = cam_config.get("port", 8080)
+        start_stream_server(camera, cam_port)
+
+    controller = RobotController(config, camera)
     await controller.start()
 
     port = config["server"]["port"]
@@ -481,6 +505,8 @@ async def main(args):
         # Cleanup
         for t in tasks:
             t.cancel()
+        if camera:
+            camera.stop()
         await controller.stop()
 
     log.info("Server shut down cleanly")

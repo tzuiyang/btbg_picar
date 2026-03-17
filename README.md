@@ -30,35 +30,48 @@ npm run app
 3. Set `VITE_PI_HOST=<Pi IP>` in `.env`
 4. SSH: `ssh yze@<Pi IP>`
 
-### Outdoor / Hotspot Mode (no router needed)
+### Hotspot Mode (default — no router needed)
 
-The Pi creates its own WiFi network. Your laptop connects directly to it.
+The Pi automatically starts its own `BTBG` WiFi network on boot.
+Your laptop connects directly to it. No router required.
 
-**Enable hotspot on the Pi:**
-```bash
-sudo nmcli device wifi hotspot ifname wlan0 ssid BTBG password btbg1234
-```
+**Default behavior:** Pi boots → `BTBG` hotspot is active → connect and go.
 
 **Connect from your laptop:**
-1. Connect to the `BTBG` WiFi network (password: `btbg1234`)
+1. Connect to the `BTBG` WiFi network
+   - If Windows asks for a PIN, click **"Connect using a password instead"**
+   - Password: `BtbgCar2024`
 2. SSH: `ssh yze@10.42.0.1`
 3. Set `VITE_PI_HOST=10.42.0.1` in `.env` on your PC
 4. Run `npm run app` on your PC
 
-**Switch back to home WiFi from the Pi:**
+**Editing code on the Pi (no internet needed):**
+While on the Pi's hotspot, you can SSH in and edit code directly:
+```bash
+ssh yze@10.42.0.1
+cd ~/btbg_picar
+# edit files, restart server, etc.
+```
+
+**Switch to home WiFi (when you need internet on the Pi):**
 ```bash
 sudo nmcli connection down Hotspot
 sudo nmcli device wifi connect "YOUR_WIFI_SSID" password "YOUR_PASSWORD"
 ```
 
-**Make hotspot start automatically on boot:**
+**Switch back to hotspot:**
 ```bash
-sudo nmcli connection modify Hotspot connection.autoconnect yes
+sudo nmcli connection up Hotspot
 ```
 
-**Stop auto-starting hotspot:**
+**Disable hotspot auto-start (if you want WiFi by default instead):**
 ```bash
 sudo nmcli connection modify Hotspot connection.autoconnect no
+```
+
+**Re-enable hotspot auto-start:**
+```bash
+sudo nmcli connection modify Hotspot connection.autoconnect yes connection.autoconnect-priority 100
 ```
 
 ---
@@ -120,10 +133,13 @@ btbg/
 - Try the IP directly: `ssh yze@<IP>` instead of `ssh yze@btbg.local`
 - Check if Pi is on the network: `arp -a` or `ping <IP>`
 
-**Pi not on WiFi after reboot**
-- Plug in ethernet or connect a monitor+keyboard
-- Check WiFi: `nmcli device status`
-- Reconnect: `sudo nmcli device wifi connect "SSID" password "PASS"`
+**Pi not reachable after reboot**
+- By default the Pi starts in hotspot mode — connect to the `BTBG` WiFi and SSH to `10.42.0.1`
+- If hotspot isn't showing, plug in a monitor+keyboard and check: `nmcli device status`
+
+**Need internet on the Pi (git pull, apt install, etc.)**
+- Switch to home WiFi: `sudo nmcli connection down Hotspot && sudo nmcli device wifi connect "SSID" password "PASS"`
+- Switch back when done: `sudo nmcli connection up Hotspot`
 
 **Steering is off-center**
 - Use the Calibrate button in the app to set the correct center offset
